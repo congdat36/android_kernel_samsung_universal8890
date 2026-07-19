@@ -26,10 +26,29 @@ jobs:
           make O=out exynos8890-hero2lte_defconfig
           make O=out -j$(nproc)
 
-      - name: Upload kernel image
+      - name: Combine device-tree blobs
+        run: |
+          find out/arch/arm64/boot/dts -name "*.dtb" | sort | xargs cat > out/arch/arm64/boot/dtb
+          ls -la out/arch/arm64/boot/Image out/arch/arm64/boot/dtb
+
+      - name: Package into flashable AnyKernel3 zip
+        run: |
+          git clone --depth 1 https://github.com/osm0sis/AnyKernel3.git ak3
+          cd ak3
+          rm -rf ramdisk patch README.md .git
+          cp ../out/arch/arm64/boot/Image .
+          cp ../out/arch/arm64/boot/dtb .
+          sed -i 's/kernel\.string=.*/kernel.string=congdat36 Kernel for hero2lte/' anykernel.sh
+          sed -i 's/device\.name1=.*/device.name1=hero2lte/' anykernel.sh
+          sed -i 's/device\.name2=.*/device.name2=hero2ltexx/' anykernel.sh
+          sed -i 's/device\.name3=.*/device.name3=hero2ltekor/' anykernel.sh
+          sed -i 's/^BLOCK=.*/BLOCK=boot;/' anykernel.sh
+          sed -i 's/^IS_SLOT_DEVICE=.*/IS_SLOT_DEVICE=0;/' anykernel.sh
+          zip -r9 ../hero2lte-kernel.zip . -x .git
+
+      - name: Upload flashable zip
         uses: actions/upload-artifact@v4
         with:
-          name: kernel-output
-          path: |
-            out/arch/arm64/boot/Image
-            out/arch/arm64/boot/dts/**/*.dtb
+          name: flashable-kernel-zip
+          path: hero2lte-kernel.zip
+          
