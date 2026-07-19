@@ -1,0 +1,37 @@
+name: Build Kernel
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout kernel source
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential bc bison flex libssl-dev \
+            libncurses5-dev python3 lz4 zip unzip
+
+      - name: Download toolchain
+        run: |
+          git clone --depth 1 https://android.googlesource.com/platform/prebuilts/gcc/linux-x86/aarch64/aarch64-linux-android-4.9 ../toolchain
+          echo "$(pwd)/../toolchain/bin" >> $GITHUB_PATH
+
+      - name: Build kernel
+        run: |
+          export ARCH=arm64
+          export CROSS_COMPILE=aarch64-linux-android-
+          make O=out exynos8890-hero2lte_defconfig
+          make O=out -j$(nproc)
+
+      - name: Upload kernel image
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-output
+          path: |
+            out/arch/arm64/boot/Image
+            out/arch/arm64/boot/dts/**/*.dtb
